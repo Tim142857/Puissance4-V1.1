@@ -1,0 +1,92 @@
+{% extends 'GameBundle::layout.html.twig' %}
+{% block body %}
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-xs-12">
+                <table class="table" data-idgrid="{{ grid.getId() }}">
+                    <th{% if debug==false %} class="hidden"{% endif %}></th>
+                    {% for colonne in grid.getColonnes() %}
+                        <th data-idcolonne="{{ colonne.getId() }}">{{ loop.index }}{% if debug %}/{{ colonne.getId() }}{% endif %}</th>
+                    {% endfor %}
+                    {% for ligne in grid.getLignes() %}
+                        <tr>
+                            <td{% if debug==false %} class="hidden"{% endif %}>{{ ligne.getId() }}</td>
+                            {% for slot in ligne.getSlots() %}
+                                <td data-idslot="{{ slot.getId() }}" {% if slot.getPlayer()!=null %}
+                                style="background-color: {{ slot.getPlayer().getColor() }}"{% endif %}>
+                                    {% if debug %}
+                                        idSlot:{{ slot.getId() }}<br/>
+                                        idLigne:{{ slot.getLigne().getId() }}<br/>
+                                        idcolonne:{{ slot.getColonne().getId() }}
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            <div class="col-xs-12">
+                <div id="id-game">Id de la game: {{ grid.getId() }}</div>
+                <div id="tour">
+                    <p data-idplayer="{{ grid.getNextPlayer().getId() }}">Tour du joueur
+                        <span>{{ grid.getNextPlayer().getName() }}</span></p>
+                </div>
+                <div id="error" style="color:red; font-weight: bolder;">
+                    <p></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block js %}
+    <script>
+        $(document).ready(function () {
+            $('th').on('click', function () {
+                //Récupération de l'id de la colonne choisie
+                var count = $('#col').val();
+                var idColonne = $(this).data('idcolonne');
+
+                //Récupération du joueur actuel
+                var idplayer = $('#tour>p').data('idplayer');
+                jouerCoup(idColonne, idplayer);
+
+            });
+
+            function jouerCoup(idColonne, idplayer, idGrid=null) {
+                $('#error>p').text('');
+                //Ajax, exécution du coup
+                var data = 'colonne=' + idColonne + '&player=' + idplayer;
+                if (idGrid != null) {
+                    data += '&idgrid=' + idGrid;
+                }
+                $.ajax({
+                    type: 'POST',
+                    url: '{{ url('game_coup') }}',
+                    dataType: 'json',
+                    data: data,
+                    success: function (data) {
+                        if (typeof data.error !== 'undefined') {
+                            $('#error>p').text(data.error);
+                        } else {
+                            $('*[data-idslot="' + data.idslot + '"]').css('background-color', data.color);
+                            if (data.finJeu) {
+                                $('#tour>p').text(data.nomGagnant + ' a gagné !!!!');
+                            } else if (data.nextPlayerId == 1) {
+                                var numGrid = $('table').data('idgrid');
+                                jouerCoup('null', 1, numGrid);
+                            } else {
+                                $('#tour>p').data('idplayer', data.nextPlayerId);
+                                $('#tour>p>span').text(data.nextPlayerName);
+                            }
+                        }
+                    }
+                })
+                ;
+            }
+        });
+    </script>
+
+{% endblock %}
+
